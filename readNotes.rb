@@ -1,5 +1,8 @@
 #!/usr/bin/ruby
-
+#
+# Add Notes Entry
+#   with section name, key, and value
+#
 def writeBytes(f, bytes)
   bytes.each {|b| f.putc b}
 end
@@ -51,6 +54,7 @@ def addSection(name, keyf)
   value = $stdin.gets.chomp
   File.open(keyf, File::BINARY | File::RDWR) {|f|
     assertFileFormatOk(f)
+    f.seek(0, IO::SEEK_END)
     writeInt32(f, name.length)
     writeStr(f, name)
     writeInt32(f, key.length)
@@ -75,18 +79,19 @@ def checkGetSection(name, keyf)
   assertFileExists(keyf)
   $stdout.print "Enter section key for #{name} : "
   key = $stdin.gets.chomp
-  value = "<NOT FOUND>"
+  retrieved = {}
   File.open(keyf, File::BINARY | File::RDWR) {|f|
     assertFileFormatOk(f)
     while not f.eof?
         lens = readInt32(f)
         s = readStr(f, lens)
-        if name == s
+        if (name == s) or (name == '*')
           lenk = readInt32(f)
           k = readStr(f, lenk)
-          if key == k
+          if (key == k) or (key == '*')
             lenv = readInt32(f)
-            value = readStr(f, lenv)
+            v = readStr(f, lenv)
+            retrieved[ "#{s}/#{k}" ] = v
           else
             skipFields(f, 1)
           end
@@ -95,7 +100,7 @@ def checkGetSection(name, keyf)
         end
     end
   }
-  value
+  retrieved
 end
 
 def checkDelSection(name, keyf)
@@ -133,7 +138,9 @@ def main(argv)
   elsif "set" == cmd
     checkSetSection(val, keyf)
   elsif "get" == cmd
-    $stderr.puts checkGetSection(val, keyf)
+    checkGetSection(val, keyf).each do |k,v|
+        $stdout.puts "#{k} => #{v}"
+    end
   elsif "del" == cmd
     checkDelSection(val, keyf)
   end
